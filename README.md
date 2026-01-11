@@ -5,3 +5,9 @@ How to start up the backend
 source golfvenv/bin/activate
 uvicorn main:app --reload --port 8000
 ```
+
+How to start up the frontend
+```bash
+npm install
+npm run dev
+```
