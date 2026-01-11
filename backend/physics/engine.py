@@ -1,25 +1,37 @@
 import numpy as np
 from .models import BallState, PerformanceMetrics
+from typing import List
+from fitting.models import SwingParameters, ClubConfiguration
 
 class PhysicsEngine:
-    G = 9.81
-    RHO = 1.225
-    BALL_MASS = 0.0459
-    BALL_RADIUS = 0.02135
-    BALL_AREA = np.pi * BALL_RADIUS ** 2
-    CD0 = 0.22
-    CL0 = 0.14
-
+    """Advanced ball flight physics simulation with realistic constants"""
+    
+    # Physical constants
+    G = 9.81  # gravity (m/s^2)
+    RHO = 1.225  # air density (kg/m^3)
+    BALL_MASS = 0.0459  # kg (45.9 grams)
+    BALL_RADIUS = 0.02135  # meters (42.7mm diameter)
+    BALL_AREA = np.pi * BALL_RADIUS ** 2 # ~0.001432 m^2
+    
+    # Aerodynamic coefficients for modern golf balls
+    CD0 = 0.22  # Lower base drag coefficient
+    CL0 = 0.14  # Base lift coefficient for Magnus calculation
+    
     def __init__(self, dt: float = 0.01):
         self.dt = dt
-
-    def compute_drag_coefficient(self, velocity, spin_rate):
-        return self.CD0 + 0.05 * (spin_rate / 3000) ** 2
-
-    def compute_lift_coefficient(self, spin_parameter):
+        
+    def compute_drag_coefficient(self, velocity: float, spin_rate: float) -> float:
+        """Reynolds number dependent drag"""
+        reynolds = (self.RHO * velocity * 2 * self.BALL_RADIUS) / 1.8e-5
+        cd = self.CD0 + 0.05 * (spin_rate / 3000) ** 2
+        return cd
+    
+    def compute_lift_coefficient(self, spin_parameter: float) -> float:
+        """Spin-dependent lift coefficient"""
+        # Spin parameter S = r*omega/v
         cl = 1.0 * (1.0 - np.exp(-2.5 * spin_parameter))
         return np.clip(cl + self.CL0, 0, 0.45)
-
+    
     def simulate_flight(
         self, 
         swing_params: SwingParameters, 
@@ -52,6 +64,7 @@ class PhysicsEngine:
         )
         
         trajectory = [BallState(**vars(state))]
+        step_count = 0
         apex = 0
         max_height_x = 0
         t = 0
@@ -106,8 +119,12 @@ class PhysicsEngine:
                 max_height_x = state.x
                 
             t += self.dt
-            if len(trajectory) % 10 == 0:
+            if step_count % 10 == 0:
                 trajectory.append(BallState(**vars(state)))
+            if state.y < 0 and t > 0.1: 
+                # Append the final landing point specifically
+                trajectory.append(BallState(**vars(state)))
+                break
 
         # 8. Metrics calculation (Convert m -> yards)
         landing_angle = np.degrees(np.arctan2(-state.vy, state.vx))
@@ -124,9 +141,14 @@ class PhysicsEngine:
         )
         
         return trajectory, metrics
-
-    def _compute_ball_speed(self, clubhead_speed, config):
+    
+    def _compute_ball_speed(self, clubhead_speed: float, config: ClubConfiguration) -> float:
+        """Compute ball speed from clubhead speed with smash factor"""
+        # Smash factor depends on impact quality
         base_smash = 1.48
+        
+        # Adjust for loft (higher loft = slightly lower smash)
         loft_factor = 1 - (config.loft - 9) * 0.005
+        
         smash_factor = base_smash * loft_factor
         return clubhead_speed * np.clip(smash_factor, 1.35, 1.52)

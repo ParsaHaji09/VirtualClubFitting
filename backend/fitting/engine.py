@@ -1,6 +1,7 @@
 import numpy as np
 from physics.engine import PhysicsEngine
-from .models import ClubConfiguration, FittingRecommendation
+from typing import Dict
+from .models import ClubConfiguration, FittingRecommendation, SwingParameters
 
 class FittingEngine:
     """Rule-based + ML-enhanced club fitting logic"""
@@ -157,3 +158,4 @@ class FittingEngine:
             reasoning["head"] = f"Lighter head ({config.head_weight}g) will help increase spin rate"
         
         return reasoning
+
