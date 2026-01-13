@@ -1,3 +1,15 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.metrics import mean_absolute_error, r2_score
+import xgboost as xgb
+import joblib
+from pathlib import Path
+import json
+from typing import Dict, Tuple
+from fitting.models import ClubConfiguration
+
 class FittingMLModel:
     def __init__(self):
         self.models = {}
@@ -25,7 +37,7 @@ class FittingMLModel:
         results = {}
 
         for target in self.target_columns:
-            print(f"Specified Target: {target}")
+            print(f"Training model for: {target}")
             y = df[target]
 
             X_train, X_test, y_train, y_test = train_test_split(
@@ -124,13 +136,20 @@ class FittingMLModel:
         
         # Define search space
         lofts = [8.5, 9.0, 9.5, 10.5, 11.0, 12.0]
-        flexes = [1, 2, 3, 4, 5]  # L, A, R, S, X
+
+        speed = swing_params['clubhead_speed']
+
+        if speed < 80: allowed_flexes = [1, 2]      # L, A
+        elif speed < 95: allowed_flexes = [2, 3, 4] # A, R, S
+        elif speed < 110: allowed_flexes = [4, 5]   # S, X
+        else: allowed_flexes = [5]
+
         weights = [50, 55, 60, 65, 70]
         head_weights = [195, 200, 205]
         
         # Grid search
         for loft in lofts:
-            for flex in flexes:
+            for flex in allowed_flexes:
                 for weight in weights:
                     for head_weight in head_weights:
                         config_features = {
@@ -186,86 +205,3 @@ class FittingMLModel:
         self.feature_columns = model_data['feature_columns']
         self.target_columns = model_data['target_columns']
         print(f"Models loaded from {filepath}")
-
-
-# ============================================================================
-# TRAINING PIPELINE
-# ============================================================================
-
-def run_training_pipeline(
-    n_samples: int = 10000,
-    model_type: str = 'xgboost',
-    save_path: str = 'models/fitting_model.pkl'
-):
-    """Complete training pipeline"""
-    
-    print("=" * 80)
-    print("GOLF CLUB FITTING - ML TRAINING PIPELINE")
-    print("=" * 80)
-    
-    # Initialize
-    physics = PhysicsEngine()
-    data_gen = SyntheticDataGenerator(physics)
-    
-    # Generate synthetic data
-    print("\n[1/4] Generating synthetic training data...")
-    df = data_gen.generate_dataset(n_samples=n_samples)
-    
-    # Save raw data
-    data_path = Path('data')
-    data_path.mkdir(exist_ok=True)
-    df.to_csv(data_path / 'synthetic_data.csv', index=False)
-    print(f"Data saved to {data_path / 'synthetic_data.csv'}")
-    
-    # Basic statistics
-    print("\nDataset Statistics:")
-    print(df[['carry_distance', 'apex_height', 'lateral_deviation']].describe())
-    
-    # Train models
-    print("\n[2/4] Training ML models...")
-    ml_model = FittingMLModel()
-    results = ml_model.train(df, model_type=model_type)
-    
-    # Save results
-    results_path = data_path / 'training_results.json'
-    with open(results_path, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"Training results saved to {results_path}")
-    
-    # Save model
-    print("\n[3/4] Saving trained models...")
-    model_path = Path(save_path)
-    model_path.parent.mkdir(exist_ok=True)
-    ml_model.save(save_path)
-    
-    # Test optimization
-    print("\n[4/4] Testing optimization...")
-    test_swing = {
-        'clubhead_speed': 95,
-        'attack_angle': 0,
-        'launch_angle': 12,
-        'spin_rate': 2600,
-        'swing_path': 0,
-        'face_angle': 0
-    }
-    
-    optimal_config, score = ml_model.optimize_configuration(test_swing)
-    print("\nOptimized Configuration:")
-    print(f"  Loft: {optimal_config.loft}°")
-    print(f"  Shaft: {optimal_config.shaft_flex} flex, {optimal_config.shaft_weight}g")
-    print(f"  Head: {optimal_config.head_weight}g")
-    print(f"  Score: {score:.1f}")
-    
-    print("\n" + "=" * 80)
-    print("TRAINING PIPELINE COMPLETE")
-    print("=" * 80)
-    
-    return ml_model, df, results
-
-
-if __name__ == "__main__":
-    # Run full training pipeline
-    ml_model, data, results = run_training_pipeline(
-        n_samples=10000,
-        model_type='xgboost'
-    )

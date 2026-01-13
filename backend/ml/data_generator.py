@@ -1,3 +1,8 @@
+import pandas as pd
+import numpy as np
+from physics.engine import PhysicsEngine
+from fitting.models import SwingParameters, ClubConfiguration
+
 class SyntheticDataGenerator:
     def __init__(self, physics_engine: PhysicsEngine):
         self.physics = physics_engine
@@ -23,8 +28,8 @@ class SyntheticDataGenerator:
                 _, metrics = self.physics.simulate_flight(swing_params, club_config)
 
                 if add_noise:
-                    metrics.carry_distance *= np.normal(1.0, noise_level)
-                    metrics.apex_height *= np.normal(1.0, noise_level)
+                    metrics.carry_distance *= np.random.normal(1.0, noise_level)
+                    metrics.apex_height *= np.random.normal(1.0, noise_level)
                     metrics.lateral_deviation += np.random.normal(0, 2.0)
 
                 data_point = {
@@ -43,7 +48,7 @@ class SyntheticDataGenerator:
                     'shaft_length': club_config.shaft_length,
 
                     'carry_distance': metrics.carry_distance,
-                    'total_disance': metrics.total_disance,
+                    'total_distance': metrics.total_distance,
                     'apex_height': metrics.apex_height,
                     'landing_angle': metrics.landing_angle,
                     'flight_time': metrics.flight_time,
@@ -64,7 +69,7 @@ class SyntheticDataGenerator:
     # creating sample realistic swing parameters fro empirical distributions
     def _sample_swing_parameters(self) -> SwingParameters:
         speed = np.random.normal(95,12)
-        speed = np.clip(speed, 70, 125)
+        speed = np.clip(speed, 70, 130)
 
         attack = np.random.normal(0, 2.5)
         attack = np.clip(attack, -6, 5)
@@ -77,7 +82,8 @@ class SyntheticDataGenerator:
         spin = np.clip(spin, 1500, 4500)
 
         path = np.random.normal(0, 2)
-        face = np.random.normal(0, 1.5)
+        raw_face = np.random.normal(0, 1.5)
+        face = np.clip(raw_face, -5.0, 5.0)
 
         return SwingParameters(
             clubhead_speed=float(speed),
@@ -109,6 +115,7 @@ class SyntheticDataGenerator:
             shaft_torque=float(torque),
             shaft_length=float(length)
         )
+    
     def _flex_to_numeric(self, flex: str) -> float:
         """Convert shaft flex to numeric value"""
         mapping = {'L': 1, 'A': 2, 'R': 3, 'S': 4, 'X': 5}

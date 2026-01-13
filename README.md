@@ -2,7 +2,9 @@
 
 How to start up the backend
 ```bash
-source golfvenv/bin/activate
+source venv/bin/activate
+pip install -r requirements.txt
+python3 train_model.py
 uvicorn main:app --reload --port 8000
 ```
 

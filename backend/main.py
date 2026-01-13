@@ -38,7 +38,7 @@ async def root():
     return {
         "message": "Virtual Golf Fitting API",
         "version": "1.0.0",
-        "endpoints": ["/simulate", "/fit", "/health"]
+        "endpoints": ["/simulate", "/fit", "/train_ml", "/health"]
     }
 
 
@@ -83,6 +83,16 @@ async def simulate_shot(
 async def fit_clubs(swing_params: SwingParameters):
     try:
         return fitting_engine.recommend_configuration(swing_params)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/train_ml")
+async def train_ml_model(n_samples: int = 10000):
+    """Train the ML model for club fitting"""
+    try:
+        results = fitting_engine.train_ml_model(n_samples)
+        return {"message": "ML model trained successfully", "results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
